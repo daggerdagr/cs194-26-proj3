@@ -4,7 +4,7 @@ import operations
 class TestProj3(unittest.TestCase):
 
     def test_gaussMake(self):
-        x = operations.makeGaussKernel(3)
+        x = operations.makeGaussKernel(lowSig = 1)
         print(x)
 
     # def test_upper(self):
