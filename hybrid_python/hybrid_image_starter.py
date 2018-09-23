@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
-from align_image_code import align_images
+from hybrid_python.align_image_code import align_images
+from operations import hybrid_image
 
 # First load images
 
