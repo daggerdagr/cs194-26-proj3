@@ -10,11 +10,15 @@ from utils import *
 
 class Operation(Enum):
     Unsharp = "unsharp"
+    GaussBlur = "gaussBlur"
 
 def apply(operation, im1, im2):
     if operation == Operation.Unsharp:
         assert im2 == None
         return unsharpOp(im1)
+    elif operation == Operation.GaussBlur:
+        assert im2 == None
+        return gaussBlurOp(im1)
     else:
         raise Exception("unrecognized operation : %s" % operation)
 
@@ -38,7 +42,13 @@ def unsharpOp(im, alpha = 1.0, sigma = 10):
 
     testImage("testUnsharp.jpg", result)
 
+def gaussBlurOp(im, sigma=10):
+    gaussKernel = makeGaussKernel(sigma)
 
+    result = signal.convolve2d(im, gaussKernel, mode="same")
+
+    testImage("testGaussBlurOp.jpg", result)
+    return result
 
 
 # returns a Gauss kernel -- desired MxM size MUST have M = an odd number
@@ -66,3 +76,15 @@ def makeGaussKernel(lowSig = 1, kernelSize = None):
             result[y, x] /= sum
 
     return result
+
+def hybrid_image(im1, im2, sigma1, sigma2):
+    return hybridImageOp(im1, im2, sigma1, sigma2)
+
+def hybridImageOp(im1, im2, sigma1, sigma2):
+
+    # im1 = derek -- cut out the high signals
+    # im2 = cat -- cut out low pass
+
+
+
+    return

@@ -28,7 +28,8 @@ im = sk.img_as_float(im)
 
 ### LOGIC
 
-apply(Operation.Unsharp, im, None)
+# apply(Operation.Unsharp, im, None)
+apply(Operation.GaussBlur, im, None)
 
 
 
