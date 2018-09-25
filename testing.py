@@ -1,11 +1,15 @@
 import unittest
 import operations
+import utils
 
 class TestProj3(unittest.TestCase):
 
     def test_gaussMake(self):
         x = operations.makeGaussKernel(lowSig = 1)
         print(x)
+
+    # def test_grayscale2RGB(self):
+    #     utils.grayscale2RGB(im)
 
     # def test_upper(self):
     #     self.assertEqual('foo'.upper(), 'FOO')
