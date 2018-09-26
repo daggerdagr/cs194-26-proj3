@@ -139,25 +139,37 @@ class PyramidMode(Enum):
     Gaussian = "gauss"
     Laplacian = "laplacian"
 
-def pyramid(im, levels, mode = PyramidMode.Gaussian):
+def pyramidsOp(im, levels, sigma, mode = PyramidMode.Gaussian):
     if mode == PyramidMode.Gaussian:
-        return gaussPyrOp(im, levels)
+        return gaussStackOp(im, levels, sigma)
     elif mode == PyramidMode.Laplacian:
-        return laplacianPyrOp(im, levels)
+        return laplacianPyrOp(im, levels, sigma)
 
-def gaussPyrOp(im, levels):
+def gaussStackOp(im, levels, sigma):
     assert levels > 0
     #inclusive of original img, at layer indexed 0
 
     result = []
-    newLayer = (lambda: np.zeros(im.shape))
+    # newLayer = (lambda: np.zeros(im.shape))
 
     for i in range(levels+1):
         if i == 0:
             result.append(im)
             continue
-        currLayer = newLayer()
+        # currLayer = newLayer()
+        currLayer = gaussBlurOp_3D(result[i-1], sigma)
+        result.append(currLayer)
+
+    return np.array(result)
 
 
-def laplacianPyrOp(im, levels): # TODO
-    pass
+def laplacianPyrOp(im, levels, sigma):
+
+    gaussStack = gaussStackOp(im, levels, sigma)
+
+    for i in range(levels):
+        res = gaussStack[i] - gaussStack[i+1]
+        finalCurrLayer = (res - res.min()) / (res.max() - res.min())
+        gaussStack[i] = finalCurrLayer
+
+    return gaussStack
