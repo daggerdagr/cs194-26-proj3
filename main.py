@@ -6,7 +6,7 @@ import datetime
 
 # custom packages
 from utils import *
-from operations import apply, Operation
+from operations import * # apply, Operation
 
 
 ### INPUT
@@ -43,7 +43,7 @@ if im2.ndim == 2:
 ### LOGIC
 
 # result = apply(Operation.Unsharp, im, None)
-result = apply(Operation.GaussBlur_3D, im1, None)
+result = gaussBlurOp_3D(im1, None)
 
 ### RESULT
 

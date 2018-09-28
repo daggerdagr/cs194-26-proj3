@@ -8,23 +8,26 @@ from enum import Enum
 ## custom
 from utils import *
 
-class Operation(Enum):
-    Unsharp = "unsharp"
-    GaussBlur_1D = "gaussBlur_1D"
-    GaussBlur_3D = "gaussBlur_3D"
-
-def apply(operation, im1, im2):
-    if operation == Operation.Unsharp:
-        assert im2 == None
-        return unsharpOp(im1)
-    elif operation == Operation.GaussBlur_1D:
-        assert im2 == None
-        return gaussBlurOp_1D(im1)
-    elif operation == Operation.GaussBlur_3D:
-        assert im2 == None
-        return gaussBlurOp_3D(im1)
-    else:
-        raise Exception("unrecognized operation : %s" % operation)
+# class Operation(Enum):
+#     #1 Arg
+#     Unsharp = unsharpOp
+#     GaussBlur_1D = gaussBlurOp_1D
+#     GaussBlur_3D = gaussBlurOp_3D
+#
+#     arg1 = set(Unsharp, GaussBlur_1D, GaussBlur_3D)
+#
+# def apply(operation, im1, im2):
+#     if operation in Operation.arg1:
+#         assert im2 == None
+#         return operation(im1)
+#     elif operation == Operation.GaussBlur_1D:
+#         assert im2 == None
+#         return gaussBlurOp_1D(im1)
+#     elif operation == Operation.GaussBlur_3D:
+#         assert im2 == None
+#         return gaussBlurOp_3D(im1)
+#     else:
+#         raise Exception("unrecognized operation : %s" % operation)
 
 ##################
 # OPERATIONS
@@ -53,7 +56,7 @@ def unsharpOp(im, alpha = 1.0, sigma = 10):
 def gaussBlurOp_1D(im, sigma=10):
     gaussKernel = makeGaussKernel(sigma)
 
-    result = signal.convolve2d(im, gaussKernel, mode="same")
+    result = signal.convolve2d(im, gaussKernel, mode="same", boundary="symm")
 
     # testImage("testGaussBlurOp.jpg", result)
     return result
@@ -141,11 +144,11 @@ class PyramidMode(Enum):
 
 def pyramidsOp(im, levels, sigma, mode = PyramidMode.Gaussian):
     if mode == PyramidMode.Gaussian:
-        return gaussStackOp(im, levels, sigma)
+        return gaussStackOp_3D(im, levels, sigma)
     elif mode == PyramidMode.Laplacian:
-        return laplacianPyrOp(im, levels, sigma)
+        return laplacianPyrOp_3D(im, levels, sigma)
 
-def gaussStackOp(im, levels, sigma):
+def gaussStackOp_3D(im, levels, sigma):
     assert levels > 0
     #inclusive of original img, at layer indexed 0
 
@@ -162,14 +165,61 @@ def gaussStackOp(im, levels, sigma):
 
     return np.array(result)
 
-
-def laplacianPyrOp(im, levels, sigma):
-
-    gaussStack = gaussStackOp(im, levels, sigma)
+def laplacianPyrOp_3D(im, levels, sigma, scaleB = False):
+    gaussStack = gaussStackOp_3D(im, levels, sigma)
 
     for i in range(levels):
         res = gaussStack[i] - gaussStack[i+1]
-        finalCurrLayer = (res - res.min()) / (res.max() - res.min())
+        if scaleB:
+            finalCurrLayer = (res - res.min()) / (res.max() - res.min())
+        else:
+            finalCurrLayer = res
         gaussStack[i] = finalCurrLayer
 
     return gaussStack
+
+
+def scaler(LM):  # scales to 0 1
+    return np.dot(LM - LM.min(), 1 / (LM.max() - LM.min()))  # * 2 - 1
+
+
+def multiResBlendOp(im1, im2, mask, levels, sigma):
+    assert im1.shape == im2.shape == mask.shape
+
+    L1 = laplacianPyrOp_3D(im1, levels, sigma)
+    L2 = laplacianPyrOp_3D(im2, levels, sigma)
+    LM = gaussStackOp_3D(mask, levels, sigma)  # laplacianPyrOp_3D(mask, levels, sigma)
+
+    # LM_blur = gaussStackOp_3D(mask, levels, sigma)
+
+    # for i in range(len(L1)):
+    #     viewImage(LM[i])
+
+    #     LM1 = np.dot(LM - LM.min(), 1 / (LM.max() - LM.min())) ## scale LM to [0, 1]
+    #     LM1 = LM1
+
+    #     print(LM.min(), LM.max())
+    LM1 = LM
+    LM2 = (1 - LM1)
+
+    #     print("HELP: ", LM1[0, 0, 0, 0], LM2[0, 0, 0, 0])
+    #     print(L1.min(), L1.max())
+    #     print(L2.min(), L2.max())
+    #     return
+
+    L1_post = LM1 * L1
+    # for i in range(len(L1)):
+    #     viewImage(scaler(L1_post[i]))
+    L2_post = LM2 * L2
+
+    finalL = L1_post + L2_post
+
+    # levelsDim, heightDim, widthDim, channelDim = L1.shape
+
+    tes = np.zeros(L1[0].shape)
+
+    for i in range(len(L1)):
+        # viewImage(scaler(finalL[i]))
+        tes += finalL[i]
+
+    return tes

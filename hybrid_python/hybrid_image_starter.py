@@ -30,7 +30,9 @@ printImage("save.jpg", hybrid, False)
 ## You also need to supply this function
 N = 5 # suggested number of pyramid levels (your choice)
 # stack = pyramidsOp(im1_aligned, N, 4, mode=PyramidMode.Laplacian)
-stack = pyramidsOp(hybrid, N, 1, mode=PyramidMode.Laplacian)
+stack1 = pyramidsOp(hybrid, N, 1, mode=PyramidMode.Laplacian)
+stack2 = pyramidsOp(hybrid, N, 1, mode=PyramidMode.Gaussian)
 
-for i in range(len(stack)):
-    printImage("pyr_"+str(i)+".bmp", stack[i], disp=False)
+for i in range(len(stack1)):
+    printImage("laplaPyr_"+str(i)+".bmp", stack1[i], disp=False)
+    printImage("gaussPyr_" + str(i) + ".bmp", stack2[i], disp=False)
