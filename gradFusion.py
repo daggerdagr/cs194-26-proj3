@@ -8,20 +8,13 @@ from skimage.io import imsave, imshow, show
 from skimage.color import grey2rgb
 
 from operations import *
+from utils import *
 
 def main():
-    impathToy = 'sample_imgs/samples/toy_problem.png'
-    imT = skio.imread(impathToy)
-    imT = sk.img_as_float(imT)
 
     impathM = 'sample_imgs/spline/mask2.jpg'
     imM = skio.imread(impathM)
     imM = sk.img_as_float(imM)
-
-    impathToyMask = 'sample_imgs/samples/toy_problem mask.png'
-    imToyMask = skio.imread(impathToyMask)
-    imToyMask = sk.img_as_float(imToyMask)
-    # viewImage(imToyMask)
 
     impathToyMaskMix = 'sample_imgs/samples/toy_problem mask_mix.png'
     imToyMaskMix = skio.imread(impathToyMaskMix)
@@ -55,23 +48,25 @@ def main():
 
     toyProb = False
 
-    # targetYX = (1576, 1088)
-    # imTarg = imIm3
-    # imSrc = imPeng
-    # srcMask = imPengMask
+    targetYX = (1576, 1088)
+    imTarg = imIm3
+    imSrc = imPeng
+    srcMask = imPengMask
 
     # targetYX = (0, 0)
     # imTarg = imToyCol
     # imSrc = imToyCol
     # srcMask = imToyMaskMix
 
-    targetYX = (0, 0)
-    imTarg = imT
-    imSrc = imT
-    srcMask = imToyMask
-    toyProb = True
+    # targetYX = (0, 0)
+    # imTarg = imT
+    # imSrc = imT
+    # srcMask = imToyMask
+    # toyProb = True
 
-    testImage("toyProb.png", gradFusion(targetYX, imTarg, imSrc, srcMask, toyProb))
+    result = gradFusionFn(targetYX, imTarg, imSrc, srcMask, toyProb)
+
+    testImage("toyProb____test.png", result, disp=False)
 
 ###
 
@@ -83,7 +78,10 @@ def getPixWCC(im, y, x, colorChannel = None):
     else:
         raise Exception("Unrecognized colorChannelCt:" + str(colorChannel))
 
-def gradFusion(targetYX, imTarg, imSrc, srcMask, toyProb=False):
+def gradFusionFn(targetYX, imTarg, imSrc, srcMask, toyProb=False):
+    if srcMask.ndim == 3:
+        srcMask = np.squeeze(np.dsplit(srcMask, [1])[0], axis=2)
+
     newImSrc, newSrcMask = shiftObjectNMask(targetYX, imSrc, srcMask, imTarg)
 
     im2Var, var2Im, totalUnknowns, dictRow2Cols, dictCol2Rows, getColBorders, getRowBorders = makeIm2Var(newSrcMask)
@@ -437,7 +435,8 @@ def shiftObjectNMask(targetYX, imSrc, srcMask, imTarg):
         srcHeight, srcWid = imSrc.shape
 
     # print(srcMask.shape)
-    assert (srcHeight, srcWid) == srcMask.shape
+    # print(srcMask.shape)
+    assert (srcHeight, srcWid) == srcMask.shape, str((srcHeight, srcWid)) + " != " + str(srcMask.shape)
     assert targWid and targHeight and srcWid and srcHeight
 
     rowStart = targetYX[0]
@@ -465,6 +464,6 @@ def shiftObjectNMask(targetYX, imSrc, srcMask, imTarg):
     return newImSrc, newSrcMask
 
 
-findBorders([0, 2, 4, 5, 6, 7], 8)
-
-main()
+# findBorders([0, 2, 4, 5, 6, 7], 8)
+if __name__ == "__main__":
+    main()

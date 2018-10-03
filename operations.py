@@ -1,59 +1,50 @@
 from scipy import signal
-import skimage as sk
-import skimage.filters as sf
-import numpy as np
+import gradFusion
+from align_image_code import align_images, align_images_w_pts
 
 from enum import Enum
 
 ## custom
 from utils import *
 
-# class Operation(Enum):
-#     #1 Arg
-#     Unsharp = unsharpOp
-#     GaussBlur_1D = gaussBlurOp_1D
-#     GaussBlur_3D = gaussBlurOp_3D
-#
-#     arg1 = set(Unsharp, GaussBlur_1D, GaussBlur_3D)
-#
-# def apply(operation, im1, im2):
-#     if operation in Operation.arg1:
-#         assert im2 == None
-#         return operation(im1)
-#     elif operation == Operation.GaussBlur_1D:
-#         assert im2 == None
-#         return gaussBlurOp_1D(im1)
-#     elif operation == Operation.GaussBlur_3D:
-#         assert im2 == None
-#         return gaussBlurOp_3D(im1)
-#     else:
-#         raise Exception("unrecognized operation : %s" % operation)
-
 ##################
 # OPERATIONS
 ##################
 
-def unsharpOp(im, alpha = 1.0, sigma = 10):
+#### UNSHARP
+
+def unsharpOp_3CC(im, alpha, sigma):
+    result = np.zeros(im.shape)
+
+    for i in range(3):
+        result[:, :, i] = unsharpOp_1CC(im[:, :, i], alpha, sigma)
+
+    return result
+
+def unsharpOp_1CC(im, alpha, sigma):
     gaussKernel = makeGaussKernel(sigma)
 
     unitImpulseKernel = signal.unit_impulse(gaussKernel.shape, idx="mid")
 
     totalKernel = unitImpulseKernel * (1 + alpha) - (gaussKernel * alpha)
 
-    result = np.zeros(im.shape)
-
-    for i in range(3):
-        result[:, :, i] = signal.convolve2d(im[:, :, i], totalKernel, mode="same")
-
-    # gaussIm = signal.convolve2d(im, gaussKernel, mode="same")
-    # testImage("testGauss.jpg", gaussIm)
+    result = signal.convolve2d(im[:, :], totalKernel, mode="same")
 
     result = np.clip(result, -1, 1)
 
-    # testImage("testUnsharp.jpg", result)
     return result
 
-def gaussBlurOp_1D(im, sigma=10):
+def unsharpOp(im, alpha = 1.0, sigma = 10):
+    if im.ndim == 3:
+        return unsharpOp_3CC(im, alpha, sigma)
+    elif im.ndim == 2:
+        return unsharpOp_1CC(im, alpha, sigma)
+    else:
+        raise Exception("Unknown color channels set up")
+
+#### GAUSS BLUR
+
+def gaussBlurOp_1CC(im, sigma=10):
     gaussKernel = makeGaussKernel(sigma)
 
     result = signal.convolve2d(im, gaussKernel, mode="same", boundary="symm")
@@ -61,13 +52,13 @@ def gaussBlurOp_1D(im, sigma=10):
     # testImage("testGaussBlurOp.jpg", result)
     return result
 
-def gaussBlurOp_3D(im, sigma=10):
+def gaussBlurOp_3CC(im, sigma=10):
     assert im.ndim == 3
 
     result = []
 
     for i in range(3):
-        result.append(gaussBlurOp_1D(im[:, :, i], sigma))
+        result.append(gaussBlurOp_1CC(im[:, :, i], sigma))
 
     return np.dstack(result)
 
@@ -97,10 +88,9 @@ def makeGaussKernel(lowSig = 1, kernelSize = None):
 
     return result
 
-def hybrid_image(im1, im2, sigma1, sigma2):
-    return hybridImageOp(im1, im2, sigma1, sigma2)
+#### HYBRID IMAGE
 
-def hybridImageMidstep(im, sigma):
+def hybridImageMidstep(im, sigma): ## doesn't work, so leave this out
     # image - gauss blurred image
     gaussKernel = makeGaussKernel(lowSig=sigma)
     unitImpulseKernel = signal.unit_impulse(gaussKernel.shape, idx="mid")
@@ -111,29 +101,38 @@ def hybridImageMidstep(im, sigma):
     result = signal.convolve2d(im, totalKernel, mode="same")
     return result
 
-def hybridImageOp(im1, im2, sigma1, sigma2):
+def hybridImageFn(im1, im2, sigma1, sigma2):
+    assert im1.ndim == im2.ndim
 
-    # im1 = derek -- cut out the high signals
-    # im2 = cat -- cut out low pass
-
-    # viewImage(im1)
-    # viewImage(im2)
+    if im1.ndim == 2:
+        firstIm = im1[:, :]
+        secondIm = im2[:, :]
+        fin1 = gaussBlurOp_1CC(firstIm, sigma1)
+        fin2 = secondIm - gaussBlurOp_1CC(secondIm, sigma2)
+        res = np.dot(fin1 + fin2, 1 / 2)
+        return res
 
     res = np.zeros(im1.shape)
 
     for i in range(3):
         firstIm = im1[:, :, i]
         secondIm = im2[:, :, i]
-        fin1 = gaussBlurOp_1D(firstIm, sigma1)
-        # viewImage(fin1)
-        fin2 = secondIm - gaussBlurOp_1D(secondIm, sigma2)
-        # fin2a = gaussBlurOp_1D(secondIm, sigma2)
-        # fin2a = hybridImageMidstep(secondIm, sigma2)
-        # assert np.array_equal(fin2a, fin2)
-        # viewImage(fin2)
+        fin1 = gaussBlurOp_1CC(firstIm, sigma1)
+        fin2 = secondIm - gaussBlurOp_1CC(secondIm, sigma2)
         res[:, :, i] = np.dot(fin1 + fin2, 1/2)
 
     return res
+
+def hybridImageOp(im1, im2, sigma1, sigma2, alignPts=None):
+    if alignPts == None:
+        im1_aligned, im2_aligned = align_images(im1, im2)
+    else:
+        im1_aligned, im2_aligned = align_images_w_pts(im1, im2, alignPts)
+
+    hybrid = hybridImageFn(im1_aligned, im2_aligned, sigma1, sigma2)
+
+    return hybrid
+
 
 
 #### PYRAMID
@@ -160,7 +159,7 @@ def gaussStackOp_3D(im, levels, sigma):
             result.append(im)
             continue
         # currLayer = newLayer()
-        currLayer = gaussBlurOp_3D(result[i-1], sigma)
+        currLayer = gaussBlurOp_3CC(result[i - 1], sigma)
         result.append(currLayer)
 
     return np.array(result)
@@ -179,47 +178,38 @@ def laplacianPyrOp_3D(im, levels, sigma, scaleB = False):
     return gaussStack
 
 
+#### MULTI RES
+
 def scaler(LM):  # scales to 0 1
     return np.dot(LM - LM.min(), 1 / (LM.max() - LM.min()))  # * 2 - 1
 
+def scalerNN(LM):  # scales to 0 1
+    return np.dot(LM - LM.min(), 1 / (LM.max() - LM.min())) * 2 - 1
 
 def multiResBlendOp(im1, im2, mask, levels, sigma):
     assert im1.shape == im2.shape == mask.shape
 
     L1 = laplacianPyrOp_3D(im1, levels, sigma)
     L2 = laplacianPyrOp_3D(im2, levels, sigma)
-    LM = gaussStackOp_3D(mask, levels, sigma)  # laplacianPyrOp_3D(mask, levels, sigma)
-
-    # LM_blur = gaussStackOp_3D(mask, levels, sigma)
-
-    # for i in range(len(L1)):
-    #     viewImage(LM[i])
-
-    #     LM1 = np.dot(LM - LM.min(), 1 / (LM.max() - LM.min())) ## scale LM to [0, 1]
-    #     LM1 = LM1
-
-    #     print(LM.min(), LM.max())
+    LM = gaussStackOp_3D(mask, levels, sigma)
     LM1 = LM
     LM2 = (1 - LM1)
 
-    #     print("HELP: ", LM1[0, 0, 0, 0], LM2[0, 0, 0, 0])
-    #     print(L1.min(), L1.max())
-    #     print(L2.min(), L2.max())
-    #     return
-
     L1_post = LM1 * L1
-    # for i in range(len(L1)):
-    #     viewImage(scaler(L1_post[i]))
     L2_post = LM2 * L2
 
     finalL = L1_post + L2_post
 
-    # levelsDim, heightDim, widthDim, channelDim = L1.shape
-
     tes = np.zeros(L1[0].shape)
 
     for i in range(len(L1)):
-        # viewImage(scaler(finalL[i]))
         tes += finalL[i]
 
-    return tes
+    tes2 = np.clip(tes, -1, 1)
+
+    return tes2
+
+#### GRAD FUSION -- this is a wrapper, because this was like, 7 functions
+
+def gradFusionOp(targetYX, imTarg, imSrc, srcMask, toyProb=False):
+    return gradFusion.gradFusionFn(targetYX, imTarg, imSrc, srcMask, toyProb)

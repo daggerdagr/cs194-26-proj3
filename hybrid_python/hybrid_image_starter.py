@@ -1,6 +1,5 @@
-import matplotlib.pyplot as plt
-from hybrid_python.align_image_code import align_images
-from operations import hybrid_image, pyramidsOp, PyramidMode
+from align_image_code import align_images
+from operations import hybridImageOp, pyramidsOp, PyramidMode
 from utils import *
 
 # First load images
@@ -19,9 +18,9 @@ im1_aligned, im2_aligned = align_images(im1, im2)
 
 sigma1 = 20
 sigma2 = 21
-hybrid = hybrid_image(im1_aligned, im2_aligned, sigma1, sigma2)
+hybrid = hybridImageOp(im1_aligned, im2_aligned, sigma1, sigma2)
 
-printImage("save.jpg", hybrid, False)
+# printImage("save.jpg", hybrid, False)
 
 # plt.imshow(hybrid)
 # plt.show
